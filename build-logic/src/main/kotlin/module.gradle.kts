@@ -34,18 +34,18 @@ tasks.withType<Detekt>().configureEach {
 
 private val githubUserProvider = providers
     .gradleProperty("gpr.user")
-    .orElse(providers.environmentVariable("GITHUB_USERNAME"))
+    .orElse(providers.environmentVariable("GPR_USER"))
 
 private val githubTokenProvider = providers
-    .gradleProperty("gpr.key")
-    .orElse(providers.environmentVariable("GITHUB_TOKEN"))
+    .gradleProperty("gpr.token")
+    .orElse(providers.environmentVariable("GRP_TOKEN"))
 
 publishing {
     repositories {
         if (githubUserProvider.isPresent && githubTokenProvider.isPresent) {
             maven {
                 name = "GitHubPackages"
-                url = uri("https://maven.pkg.github.com/BashlikovV/StringIndexer")
+                url = uri("https://maven.pkg.github.com/kigya/GithubEnvSync-Plugin")
 
                 credentials {
                     username = githubUserProvider.get()
@@ -54,6 +54,15 @@ publishing {
             }
         }
     }
+}
+
+tasks.register("publishRelease") {
+    group = "release"
+    description = "Publishes all publishable modules"
+
+    dependsOn(
+        ":github-env-sync-plugin:publish",
+    )
 }
 
 dependencies {

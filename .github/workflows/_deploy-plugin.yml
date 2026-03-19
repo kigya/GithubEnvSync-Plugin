@@ -1,0 +1,28 @@
+name: _deploy-plugin
+on:
+  workflow_call:
+  workflow_dispatch:
+    inputs:
+      run_deploy:
+        description: 'Запустить Deploy?'
+        type: boolean
+        default: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: 'gradle'
+
+      - name: Run Deploy
+        env:
+          GPR_USER: ${{ secrets.GPR_USER }}
+          GPR_KEY: ${{ secrets.GPR_TOKEN }}
+        run: ./gradlew publishRelease -Pgpr.user=$GPR_USER -Pgpr.token=$GPR_KEY --stacktrace
