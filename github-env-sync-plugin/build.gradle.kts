@@ -24,3 +24,14 @@ gradlePlugin {
         }
     }
 }
+
+publishing {
+    publications {
+        withType<MavenPublication>().configureEach {
+            pom {
+                name = "githubEnvSyncPlugin"
+                description = "Authorize via GitHub, verify repo access, fetch Actions Variables, and generate env files"
+            }
+        }
+    }
+}

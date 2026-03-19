@@ -1,0 +1,32 @@
+name: Headway Pipelines
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+  issues: write
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detekt:
+    uses: ./.github/workflows/_detekt-plugin.yml
+    secrets: inherit
+
+  build:
+    uses: ./.github/workflows/_build-plugin.yml
+    secrets: inherit
+    
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: [detekt, build]
+    uses: ./.github/workflows/_deploy-plugin.yml
+    secrets: inherit

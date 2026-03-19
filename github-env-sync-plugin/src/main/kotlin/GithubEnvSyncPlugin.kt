@@ -3,6 +3,8 @@ import org.gradle.api.Project
 import util.EnvSyncState
 import java.io.File
 
+private const val GITHUB_ENV_SYNC_GROUP = "github env sync"
+
 @Suppress("UNUSED")
 internal class GithubEnvSyncPlugin : Plugin<Project> {
 
@@ -23,43 +25,9 @@ internal class GithubEnvSyncPlugin : Plugin<Project> {
         ext.environments.convention(emptyList())
         ext.generatedRootDir.convention(ext.outputDir)
 
-        tasks.register("githubLogin", GithubLoginTask::class.java) {
-            it.group = "github env sync"
-            it.clientId.set(ext.clientId)
-            it.tokenPropertyName.set(ext.tokenPropertyName)
-            it.usernamePropertyName.set(ext.usernamePropertyName)
-            it.autoOpenBrowser.set(ext.autoOpenBrowser)
-            it.owner.set(ext.owner)
-            it.repo.set(ext.repo)
-            it.environment.set(ext.environment)
-            it.environments.set(ext.environments)
-            it.includeLocalEnvironment.set(ext.includeLocalEnvironment)
-            it.templatesDir.set(ext.templatesDir)
-            it.outputDir.set(ext.outputDir)
-            it.generatedRootDir.set(ext.generatedRootDir)
-            it.failOnMissingVariables.set(ext.failOnMissingVariables)
-        }
-
-        tasks.register("syncGithubEnv", SyncGithubEnvTask::class.java) {
-            it.group = "github env sync"
-            it.owner.set(ext.owner)
-            it.repo.set(ext.repo)
-            it.environment.set(ext.environment)
-            it.environments.set(ext.environments)
-            it.includeLocalEnvironment.set(ext.includeLocalEnvironment)
-            it.templatesDir.set(ext.templatesDir)
-            it.outputDir.set(ext.outputDir)
-            it.generatedRootDir.set(ext.generatedRootDir)
-            it.tokenPropertyName.set(ext.tokenPropertyName)
-            it.usernamePropertyName.set(ext.usernamePropertyName)
-            it.failOnMissingVariables.set(ext.failOnMissingVariables)
-        }
-
-        tasks.register("githubLogout", GithubLogoutTask::class.java) {
-            it.group = "github env sync"
-            it.tokenPropertyName.set(ext.tokenPropertyName)
-            it.usernamePropertyName.set(ext.usernamePropertyName)
-        }
+        registerGithubLoginTask(ext)
+        registerEnvSyncTask(ext)
+        registerLogoutTask(ext)
 
         afterEvaluate {
             if (!ext.runOnIdeSync.get()) return@afterEvaluate
@@ -120,6 +88,50 @@ internal class GithubEnvSyncPlugin : Plugin<Project> {
                         "Project sync will continue. You can run githubLogin / syncGithubEnv manually.",
                 )
             }
+        }
+    }
+
+    private fun Project.registerGithubLoginTask(ext: GithubEnvSyncExtension) {
+        tasks.register("githubLogin", GithubLoginTask::class.java) {
+            it.group = GITHUB_ENV_SYNC_GROUP
+            it.clientId.set(ext.clientId)
+            it.tokenPropertyName.set(ext.tokenPropertyName)
+            it.usernamePropertyName.set(ext.usernamePropertyName)
+            it.autoOpenBrowser.set(ext.autoOpenBrowser)
+            it.owner.set(ext.owner)
+            it.repo.set(ext.repo)
+            it.environment.set(ext.environment)
+            it.environments.set(ext.environments)
+            it.includeLocalEnvironment.set(ext.includeLocalEnvironment)
+            it.templatesDir.set(ext.templatesDir)
+            it.outputDir.set(ext.outputDir)
+            it.generatedRootDir.set(ext.generatedRootDir)
+            it.failOnMissingVariables.set(ext.failOnMissingVariables)
+        }
+    }
+
+    private fun Project.registerEnvSyncTask(ext: GithubEnvSyncExtension) {
+        tasks.register("syncGithubEnv", SyncGithubEnvTask::class.java) {
+            it.group = GITHUB_ENV_SYNC_GROUP
+            it.owner.set(ext.owner)
+            it.repo.set(ext.repo)
+            it.environment.set(ext.environment)
+            it.environments.set(ext.environments)
+            it.includeLocalEnvironment.set(ext.includeLocalEnvironment)
+            it.templatesDir.set(ext.templatesDir)
+            it.outputDir.set(ext.outputDir)
+            it.generatedRootDir.set(ext.generatedRootDir)
+            it.tokenPropertyName.set(ext.tokenPropertyName)
+            it.usernamePropertyName.set(ext.usernamePropertyName)
+            it.failOnMissingVariables.set(ext.failOnMissingVariables)
+        }
+    }
+
+    private fun Project.registerLogoutTask(ext: GithubEnvSyncExtension) {
+        tasks.register("githubLogout", GithubLogoutTask::class.java) {
+            it.group = GITHUB_ENV_SYNC_GROUP
+            it.tokenPropertyName.set(ext.tokenPropertyName)
+            it.usernamePropertyName.set(ext.usernamePropertyName)
         }
     }
 

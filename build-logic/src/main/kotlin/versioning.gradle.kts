@@ -42,13 +42,3 @@ tasks.register("bumpVersion") {
         println("Version bumped: $current -> $next")
     }
 }
-
-tasks.register("publishRelease") {
-    group = "release"
-    description = "Publishes all publishable modules"
-
-    dependsOn(
-        ":indexer-gradle-plugin:publishAllPublicationsToGitHubPackagesRepository",
-        ":indexer-runtime:publishAllPublicationsToGitHubPackagesRepository",
-    )
-}
