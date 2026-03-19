@@ -3,6 +3,7 @@ import org.gradle.api.Project
 import util.EnvSyncState
 import java.io.File
 
+@Suppress("UNUSED")
 internal class GithubEnvSyncPlugin : Plugin<Project> {
 
     override fun apply(target: Project) = target.applyGithubEnvSync()
@@ -52,6 +53,12 @@ internal class GithubEnvSyncPlugin : Plugin<Project> {
             it.tokenPropertyName.set(ext.tokenPropertyName)
             it.usernamePropertyName.set(ext.usernamePropertyName)
             it.failOnMissingVariables.set(ext.failOnMissingVariables)
+        }
+
+        tasks.register("githubLogout", GithubLogoutTask::class.java) {
+            it.group = "github env sync"
+            it.tokenPropertyName.set(ext.tokenPropertyName)
+            it.usernamePropertyName.set(ext.usernamePropertyName)
         }
 
         afterEvaluate {
