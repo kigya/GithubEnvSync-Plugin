@@ -1,0 +1,7 @@
+[versions]
+
+[libraries]
+
+[plugins]
+module = { id = "module" }
+versioning = { id = "versioning" }
