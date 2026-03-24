@@ -4,38 +4,30 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.PropertyNamingStrategies
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import ext.bearer
 import util.GithubApiException
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 private const val APPLICATION_VND_GITHUB_JSON = "application/vnd.github+json"
-
 private const val AUTHORIZATION_HEADER = "Authorization"
-
 private const val X_GIT_HUB_API_VERSION_HEADER = "X-GitHub-Api-Version"
-
 private const val ACCEPT_HEADER = "Accept"
-
 private const val CONTENT_TYPE_HEADER = "Content-Type"
 
 private const val GITHUB_BASE_URL = "https://github.com"
-
 private const val GITHUB_API_BASE_URL = "https://api.github.com"
-
 private const val GITHUB_API_VERSION = "2022-11-28"
 
 private const val HTTP_STATUS_OK = 200
-
 private const val HTTP_MISCELLANEOUS_PERSISTENT_WARNING = 299
-
 private const val HTTP_TO_MANY_REQUESTS = 429
-
 private const val HTTP_BAD_GATEWAY = 502
-
 private const val HTTP_SERVICE_UNAVAILABLE = 503
-
 private const val HTTP_GATEWAY_TIMEOUT = 504
-
 private const val HTTP_NOT_FOUND = 404
 
+@Suppress("TooManyFunctions")
 internal class GithubApi(
     private val clientId: String? = null,
 ) {
@@ -69,10 +61,7 @@ internal class GithubApi(
 
         val response = Http.post(
             url = "$GITHUB_BASE_URL/login/oauth/access_token",
-            headers = mapOf(
-                ACCEPT_HEADER to "application/json",
-                CONTENT_TYPE_HEADER to "application/x-www-form-urlencoded",
-            ),
+            headers = oauthHeaders,
             body = buildString {
                 append("client_id=").append(id)
                 append("&device_code=").append(deviceCode)
@@ -84,13 +73,7 @@ internal class GithubApi(
             in HTTP_STATUS_OK..HTTP_MISCELLANEOUS_PERSISTENT_WARNING ->
                 mapper.readValue<AccessTokenResponse>(response.body)
 
-            in setOf(
-                HTTP_TO_MANY_REQUESTS,
-                HTTP_BAD_GATEWAY,
-                HTTP_SERVICE_UNAVAILABLE,
-                HTTP_GATEWAY_TIMEOUT,
-            ),
-            -> throw GithubApiException(
+            in TRANSIENT_ERROR_CODES -> throw GithubApiException(
                 message = "Transient GitHub error during token polling: HTTP ${response.code}",
                 statusCode = response.code,
                 retryable = true,
@@ -107,32 +90,10 @@ internal class GithubApi(
     fun getCurrentUser(token: String): GithubUser {
         val response = Http.get(
             url = "$GITHUB_API_BASE_URL/user",
-            headers = mapOf(
-                AUTHORIZATION_HEADER to token.bearer(),
-                ACCEPT_HEADER to APPLICATION_VND_GITHUB_JSON,
-                X_GIT_HUB_API_VERSION_HEADER to GITHUB_API_VERSION,
-            ),
+            headers = createHeaders(token),
         )
 
-        if (response.code in setOf(
-                HTTP_TO_MANY_REQUESTS, HTTP_BAD_GATEWAY,
-                HTTP_SERVICE_UNAVAILABLE, HTTP_GATEWAY_TIMEOUT,
-            )
-        ) {
-            throw GithubApiException(
-                message = "Transient GitHub error while loading current user: HTTP ${response.code}",
-                statusCode = response.code,
-                retryable = true,
-            )
-        }
-
-        if (response.code !in HTTP_STATUS_OK..HTTP_MISCELLANEOUS_PERSISTENT_WARNING) {
-            throw GithubApiException(
-                message = "Failed to fetch current GitHub user. HTTP ${response.code}: ${response.body}",
-                statusCode = response.code,
-                retryable = false,
-            )
-        }
+        validateResponse(response, "current user")
 
         return mapper.readValue(response.body)
     }
@@ -145,32 +106,10 @@ internal class GithubApi(
     ): CollaboratorPermissionResponse {
         val response = Http.get(
             url = "$GITHUB_API_BASE_URL/repos/$owner/$repo/collaborators/$username/permission",
-            headers = mapOf(
-                AUTHORIZATION_HEADER to token.bearer(),
-                ACCEPT_HEADER to APPLICATION_VND_GITHUB_JSON,
-                X_GIT_HUB_API_VERSION_HEADER to GITHUB_API_VERSION,
-            ),
+            headers = createHeaders(token),
         )
 
-        if (response.code in setOf(
-                HTTP_TO_MANY_REQUESTS, HTTP_BAD_GATEWAY,
-                HTTP_SERVICE_UNAVAILABLE, HTTP_GATEWAY_TIMEOUT,
-            )
-        ) {
-            throw GithubApiException(
-                message = "Transient GitHub error while checking collaborator permission: HTTP ${response.code}",
-                statusCode = response.code,
-                retryable = true,
-            )
-        }
-
-        if (response.code !in HTTP_STATUS_OK..HTTP_MISCELLANEOUS_PERSISTENT_WARNING) {
-            throw GithubApiException(
-                message = "Failed to check collaborator permission. HTTP ${response.code}: ${response.body}",
-                statusCode = response.code,
-                retryable = false,
-            )
-        }
+        validateResponse(response, "collaborator permission")
 
         return mapper.readValue(response.body)
     }
@@ -180,37 +119,13 @@ internal class GithubApi(
         owner: String,
         repo: String,
     ): Map<String, String> {
-        val response = Http.get(
-            url = "$GITHUB_API_BASE_URL/repos/$owner/$repo/actions/variables?per_page=100",
-            headers = mapOf(
-                AUTHORIZATION_HEADER to token.bearer(),
-                ACCEPT_HEADER to APPLICATION_VND_GITHUB_JSON,
-                X_GIT_HUB_API_VERSION_HEADER to GITHUB_API_VERSION,
-            ),
+        val baseUrl = "$GITHUB_API_BASE_URL/repos/$owner/$repo/actions/variables"
+        return fetchAllActionVariables(
+            token = token,
+            listBaseUrl = baseUrl,
+            notFoundReturnsEmpty = false,
+            errorLabel = "repository variables",
         )
-
-        if (response.code in setOf(
-                HTTP_TO_MANY_REQUESTS, HTTP_BAD_GATEWAY,
-                HTTP_SERVICE_UNAVAILABLE, HTTP_GATEWAY_TIMEOUT,
-            )
-        ) {
-            throw GithubApiException(
-                message = "Transient GitHub error while loading repository variables: HTTP ${response.code}",
-                statusCode = response.code,
-                retryable = true,
-            )
-        }
-
-        if (response.code !in HTTP_STATUS_OK..HTTP_MISCELLANEOUS_PERSISTENT_WARNING) {
-            throw GithubApiException(
-                message = "Failed to fetch repository variables. HTTP ${response.code}: ${response.body}",
-                statusCode = response.code,
-                retryable = false,
-            )
-        }
-
-        val parsed: VariablesListResponse = mapper.readValue(response.body)
-        return parsed.variables.associate { it.name to it.value }
     }
 
     fun getEnvironmentVariables(
@@ -219,24 +134,62 @@ internal class GithubApi(
         repo: String,
         environment: String,
     ): Map<String, String> {
-        val response = Http.get(
-            url = "$GITHUB_API_BASE_URL/repos/$owner/$repo/environments/$environment/variables?per_page=100",
-            headers = mapOf(
-                AUTHORIZATION_HEADER to token.bearer(),
-                ACCEPT_HEADER to APPLICATION_VND_GITHUB_JSON,
-                X_GIT_HUB_API_VERSION_HEADER to GITHUB_API_VERSION,
-            ),
+        val encodedEnvironment = encodePathSegment(environment)
+        val baseUrl = "$GITHUB_API_BASE_URL/repos/$owner/$repo/environments/$encodedEnvironment/variables"
+        return fetchAllActionVariables(
+            token = token,
+            listBaseUrl = baseUrl,
+            notFoundReturnsEmpty = true,
+            errorLabel = "environment variables for '$environment'",
         )
+    }
 
-        if (response.code == HTTP_NOT_FOUND) return emptyMap()
+    private fun fetchAllActionVariables(
+        token: String,
+        listBaseUrl: String,
+        notFoundReturnsEmpty: Boolean,
+        errorLabel: String,
+    ): Map<String, String> {
+        val headers = createHeaders(token)
+        val result = linkedMapOf<String, String>()
+        var page = 1
 
-        if (response.code in setOf(
-                HTTP_TO_MANY_REQUESTS, HTTP_BAD_GATEWAY,
-                HTTP_SERVICE_UNAVAILABLE, HTTP_GATEWAY_TIMEOUT,
+        while (true) {
+            val response = Http.get(
+                url = "$listBaseUrl?per_page=$VARIABLES_PAGE_SIZE&page=$page",
+                headers = headers,
             )
-        ) {
+
+            if (notFoundReturnsEmpty && response.code == HTTP_NOT_FOUND && page == 1) {
+                return emptyMap()
+            }
+
+            validateResponse(response, errorLabel)
+
+            val parsed: VariablesListResponse = mapper.readValue(response.body)
+            parsed.variables.forEach { result[it.name] = it.value }
+
+            if (isLastPage(parsed, result.size)) break
+            page++
+        }
+
+        return result
+    }
+
+    private fun isLastPage(
+        parsed: VariablesListResponse,
+        currentSize: Int,
+    ): Boolean = parsed.variables.isEmpty() ||
+        parsed.variables.size < VARIABLES_PAGE_SIZE ||
+        (parsed.totalCount > 0 && currentSize >= parsed.totalCount)
+
+    private fun validateResponse(
+        response: HttpResponse,
+        errorLabel: String,
+    ) {
+        if (response.code in TRANSIENT_ERROR_CODES) {
             throw GithubApiException(
-                message = "Transient GitHub error while loading environment variables: HTTP ${response.code}",
+                message = "Transient GitHub error while loading $errorLabel: HTTP ${response.code}",
                 statusCode = response.code,
                 retryable = true,
             )
@@ -244,15 +197,32 @@ internal class GithubApi(
 
         if (response.code !in HTTP_STATUS_OK..HTTP_MISCELLANEOUS_PERSISTENT_WARNING) {
             throw GithubApiException(
-                message = "Failed to fetch environment variables. HTTP ${response.code}: ${response.body}",
+                message = "Failed to fetch $errorLabel. HTTP ${response.code}: ${response.body}",
                 statusCode = response.code,
                 retryable = false,
             )
         }
-
-        val parsed: VariablesListResponse = mapper.readValue(response.body)
-        return parsed.variables.associate { it.name to it.value }
     }
 
-    private fun String.bearer() = "Bearer $this"
+    private fun createHeaders(token: String) = mapOf(
+        AUTHORIZATION_HEADER to token.bearer(),
+        ACCEPT_HEADER to APPLICATION_VND_GITHUB_JSON,
+        X_GIT_HUB_API_VERSION_HEADER to GITHUB_API_VERSION,
+    )
+
+    private fun encodePathSegment(segment: String): String = URLEncoder
+        .encode(segment, StandardCharsets.UTF_8)
+        .replace("+", "%20")
+
+    private companion object {
+
+        const val VARIABLES_PAGE_SIZE = 10
+
+        val TRANSIENT_ERROR_CODES = setOf(
+            HTTP_TO_MANY_REQUESTS,
+            HTTP_BAD_GATEWAY,
+            HTTP_SERVICE_UNAVAILABLE,
+            HTTP_GATEWAY_TIMEOUT,
+        )
+    }
 }

@@ -21,7 +21,6 @@ internal class GithubEnvSyncPlugin : Plugin<Project> {
         ext.autoOpenBrowser.convention(true)
         ext.failOnMissingVariables.convention(true)
         ext.runOnIdeSync.convention(true)
-        ext.includeLocalEnvironment.convention(true)
         ext.environments.convention(emptyList())
         ext.generatedRootDir.convention(ext.outputDir)
 
@@ -40,7 +39,6 @@ internal class GithubEnvSyncPlugin : Plugin<Project> {
             val targetEnvironments = resolveConfiguredEnvironments(
                 environments = ext.environments.orNull.orEmpty(),
                 legacyEnvironment = ext.environment.orNull,
-                includeLocalEnvironment = ext.includeLocalEnvironment.get(),
             )
             val generatedRootDir = ext.generatedRootDir.get().asFile
 
@@ -73,7 +71,6 @@ internal class GithubEnvSyncPlugin : Plugin<Project> {
                     repo = ext.repo.get(),
                     environments = ext.environments.orNull.orEmpty(),
                     legacyEnvironment = ext.environment.orNull,
-                    includeLocalEnvironment = ext.includeLocalEnvironment.get(),
                     templatesDir = templatesDir,
                     outputDir = ext.outputDir.orNull?.asFile,
                     generatedRootDir = generatedRootDir,
@@ -102,7 +99,6 @@ internal class GithubEnvSyncPlugin : Plugin<Project> {
             it.repo.set(ext.repo)
             it.environment.set(ext.environment)
             it.environments.set(ext.environments)
-            it.includeLocalEnvironment.set(ext.includeLocalEnvironment)
             it.templatesDir.set(ext.templatesDir)
             it.outputDir.set(ext.outputDir)
             it.generatedRootDir.set(ext.generatedRootDir)
@@ -117,7 +113,6 @@ internal class GithubEnvSyncPlugin : Plugin<Project> {
             it.repo.set(ext.repo)
             it.environment.set(ext.environment)
             it.environments.set(ext.environments)
-            it.includeLocalEnvironment.set(ext.includeLocalEnvironment)
             it.templatesDir.set(ext.templatesDir)
             it.outputDir.set(ext.outputDir)
             it.generatedRootDir.set(ext.generatedRootDir)
@@ -138,15 +133,11 @@ internal class GithubEnvSyncPlugin : Plugin<Project> {
     private fun resolveConfiguredEnvironments(
         environments: List<String>,
         legacyEnvironment: String?,
-        includeLocalEnvironment: Boolean,
     ): List<String> {
         val result = linkedSetOf<String>()
         result.addAll(environments.filter { it.isNotBlank() })
         if (result.isEmpty() && !legacyEnvironment.isNullOrBlank()) {
             result += legacyEnvironment
-        }
-        if (includeLocalEnvironment) {
-            result += "local"
         }
         return result.toList()
     }
