@@ -10,7 +10,6 @@ internal class GithubEnvSyncAction(
     private val repo: String,
     private val environments: List<String>,
     private val legacyEnvironment: String?,
-    private val includeLocalEnvironment: Boolean,
     private val templatesDir: File,
     private val outputDir: File?,
     private val generatedRootDir: File,
@@ -69,10 +68,8 @@ internal class GithubEnvSyncAction(
         resolveTargetEnvironments().forEach { environment ->
             val merged = linkedMapOf<String, String>()
             merged.putAll(repoVars)
-            if (environment != LOCAL_ENVIRONMENT) {
-                val envVars = api.getEnvironmentVariables(token, owner, repo, environment)
-                merged.putAll(envVars)
-            }
+            val envVars = api.getEnvironmentVariables(token, owner, repo, environment)
+            merged.putAll(envVars)
 
             val environmentOutputDir = resolveOutputDir(environment)
             renderTemplates(templatesDir, environmentOutputDir, merged, failOnMissingVariables)
@@ -95,9 +92,6 @@ internal class GithubEnvSyncAction(
         if (result.isEmpty() && !legacyEnvironment.isNullOrBlank()) {
             result += legacyEnvironment
         }
-        if (includeLocalEnvironment) {
-            result += LOCAL_ENVIRONMENT
-        }
         require(result.isNotEmpty()) {
             "No environments configured. Set githubEnvSync.environments or githubEnvSync.environment"
         }
@@ -108,8 +102,7 @@ internal class GithubEnvSyncAction(
         val legacyOutputDir = outputDir
         return if (legacyOutputDir != null &&
             environment == legacyEnvironment &&
-            environments.isEmpty() &&
-            !includeLocalEnvironment
+            environments.isEmpty()
         ) {
             legacyOutputDir
         } else {
@@ -157,7 +150,4 @@ internal class GithubEnvSyncAction(
         }
     }
 
-    private companion object {
-        const val LOCAL_ENVIRONMENT = "local"
-    }
 }
