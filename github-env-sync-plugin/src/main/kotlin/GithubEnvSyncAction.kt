@@ -149,5 +149,4 @@ internal class GithubEnvSyncAction(
             logger("Generated ${outputFile.absolutePath}")
         }
     }
-
 }

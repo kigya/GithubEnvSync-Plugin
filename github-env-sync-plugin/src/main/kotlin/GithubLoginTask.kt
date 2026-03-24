@@ -35,7 +35,6 @@ internal abstract class GithubLoginTask : DefaultTask() {
     @get:Input
     abstract val environments: ListProperty<String>
 
-
     @get:InputDirectory
     abstract val templatesDir: DirectoryProperty
 

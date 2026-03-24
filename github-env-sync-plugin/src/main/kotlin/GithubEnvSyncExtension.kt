@@ -17,7 +17,6 @@ abstract class GithubEnvSyncExtension @Inject constructor(
 
     abstract val environments: ListProperty<String>
 
-
     val clientId: Property<String> = objects
         .property(String::class.java)
         .value(ProjectGradleProperties.read("github.app.clientId"))
